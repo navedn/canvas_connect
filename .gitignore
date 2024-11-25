@@ -41,3 +41,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter apk information must be hidden
+/android/app/google-services.json
+lib/firebase_options.dart
