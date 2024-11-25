@@ -16,10 +16,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
 
   String? _role = "User"; // Default role
   bool _isLoading = false;
   String? _errorMessage;
+
+  Future<bool> _isUsernameTaken(String username) async {
+    final QuerySnapshot result = await _firestore
+        .collection('users')
+        .where('username', isEqualTo: username)
+        .get();
+    return result.docs.isNotEmpty; // Returns true if username exists
+  }
 
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
@@ -30,10 +39,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
+      // Check if the username is already taken
+      final isTaken = await _isUsernameTaken(_usernameController.text.trim());
+      if (isTaken) {
+        setState(() {
+          _errorMessage = "Username is already taken. Please choose another.";
+        });
+        return;
+      }
+
       // Create user in Firebase Authentication
       UserCredential userCredential =
           await _auth.createUserWithEmailAndPassword(
-        email: _emailController.text,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
@@ -43,8 +61,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Save user details to Firestore
       await _firestore.collection('users').doc(userId).set({
         'userId': userId,
-        'firstName': _firstNameController.text,
-        'lastName': _lastNameController.text,
+        'firstName': _firstNameController.text.trim(),
+        'lastName': _lastNameController.text.trim(),
+        'username': _usernameController.text.trim(),
         'role': _role,
         'registrationDateTime': DateTime.now().toIso8601String(),
       });
@@ -102,6 +121,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: InputDecoration(
+                          labelText: 'Username',
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                          prefixIcon:
+                              Icon(Icons.person, color: Colors.blueAccent),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a username';
+                          }
+                          if (value.length < 3) {
+                            return 'Username must be at least 3 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 12),
                       TextFormField(
                         controller: _emailController,
                         decoration: InputDecoration(
