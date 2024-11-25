@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter_messageboard/register_screen.dart';
+import 'package:canvas_connect/register_screen.dart';
 import 'firebase_options.dart';
 import 'splash_screen.dart';
 // import 'message_boards_screen.dart';
@@ -102,7 +102,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => LoginScreen(),
-        // '/register': (context) => RegisterScreen(),
+        '/register': (context) => RegisterScreen(),
         // '/messageBoards': (context) => MessageBoardsScreen(),
         // '/profile': (context) => ProfileScreen(),
         // '/settings': (context) => SettingsScreen(),
