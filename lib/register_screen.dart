@@ -14,6 +14,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
@@ -44,6 +47,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (isTaken) {
         setState(() {
           _errorMessage = "Username is already taken. Please choose another.";
+        });
+        return;
+      }
+
+      if (_passwordController.text != _confirmPasswordController.text) {
+        setState(() {
+          _errorMessage = "Passwords do not match.";
         });
         return;
       }
@@ -193,6 +203,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                       SizedBox(height: 12),
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        decoration: InputDecoration(
+                          labelText: 'Confirm Password',
+                          prefixIcon:
+                              Icon(Icons.lock, color: Colors.purpleAccent),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
+                        ),
+                        obscureText: true,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(
+                        height: 12,
+                      ),
                       TextFormField(
                         controller: _firstNameController,
                         decoration: InputDecoration(
