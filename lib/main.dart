@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:canvas_connect/register_screen.dart';
 import 'firebase_options.dart';
 import 'splash_screen.dart';
-// import 'message_boards_screen.dart';
+import 'home_screen.dart';
 // import 'profile_screen.dart';
 // import 'settings_screen.dart';
 
@@ -15,6 +15,11 @@ class AppTheme {
       scaffoldBackgroundColor: Colors.transparent,
       fontFamily: 'Roboto',
       primaryColor: Colors.blueAccent.shade200,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.pink, // Set the default background color
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.black,
+      ),
       textTheme: TextTheme(
         displayLarge: TextStyle(
           fontSize: 40,
@@ -103,7 +108,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const SplashScreen(),
         '/login': (context) => LoginScreen(),
         '/register': (context) => RegisterScreen(),
-        // '/messageBoards': (context) => MessageBoardsScreen(),
+        '/home': (context) => HomeScreen(),
         // '/profile': (context) => ProfileScreen(),
         // '/settings': (context) => SettingsScreen(),
       },
@@ -130,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text,
         password: _passwordController.text,
       );
-      Navigator.of(context).pushReplacementNamed('/messageBoards');
+      Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
       setState(() {
         _errorMessage = "Login failed. Please check your email and password.";
