@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'messaging_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,6 +13,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _newPasswordController = TextEditingController();
 
   int _selectedIndex = 0; // Track the selected index for BottomNavigationBar
+
+  final List<Widget> _pages = [];
+
+  late String _username = '';
 
   // Function to change password directly
   Future<void> _changePassword(BuildContext context) async {
@@ -58,11 +64,42 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).pushReplacementNamed('/login');
   }
 
+  // Fetch the current user's username
+  Future<void> _fetchUsername() async {
+    final user = _auth.currentUser;
+
+    if (user != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        setState(() {
+          _username = userDoc.data()?['username'] ?? 'Unknown';
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching username: $e')),
+        );
+      }
+    }
+  }
+
   // Function to handle Bottom Navigation Bar item selection
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+
+    // Navigate based on selected index
+    if (index == 1) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => MessagingScreen(username: _username),
+        ),
+      );
+    }
   }
 
   @override
@@ -140,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: Icon(Icons.settings),
               title: Text('Settings'),
               onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
+                Navigator.of(context).pop();
                 // Add navigation logic here
               },
             ),

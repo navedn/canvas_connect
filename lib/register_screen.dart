@@ -26,11 +26,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _errorMessage;
 
   Future<bool> _isUsernameTaken(String username) async {
-    final QuerySnapshot result = await _firestore
-        .collection('users')
-        .where('username', isEqualTo: username)
-        .get();
-    return result.docs.isNotEmpty; // Returns true if username exists
+    final DocumentSnapshot result =
+        await _firestore.collection('usernames').doc(username).get();
+    return result.exists; // Returns true if the username exists
   }
 
   Future<void> _registerUser() async {
@@ -42,8 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
+      String username = _usernameController.text.trim();
+
       // Check if the username is already taken
-      final isTaken = await _isUsernameTaken(_usernameController.text.trim());
+      final isTaken = await _isUsernameTaken(username);
       if (isTaken) {
         setState(() {
           _errorMessage = "Username is already taken. Please choose another.";
@@ -68,12 +68,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Get the user's unique ID
       String userId = userCredential.user!.uid;
 
+      // Save the username to the 'usernames' collection
+      await _firestore.collection('usernames').doc(username).set({
+        'userId': userId,
+      });
+
       // Save user details to Firestore
       await _firestore.collection('users').doc(userId).set({
         'userId': userId,
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
-        'username': _usernameController.text.trim(),
+        'username': username,
         'role': _role,
         'registrationDateTime': DateTime.now().toIso8601String(),
       });
