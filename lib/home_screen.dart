@@ -65,13 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // List of views to show based on selected index
-  List<Widget> _views = [
-    Center(child: Text('Home Content')), // Home View
-    Center(child: Text('Settings Content')), // Settings View
-    Center(child: Text('Profile Content')), // Profile View
-  ];
-
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
@@ -89,11 +82,76 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         title: Text('Home: Discover Art'),
         centerTitle: true,
-        leading: Icon(Icons.menu),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(), // Open Drawer
+          ),
+        ),
         actions: [
           IconButton(onPressed: () => {}, icon: Icon(Icons.search)),
           IconButton(onPressed: () => {}, icon: Icon(Icons.more_vert)),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade300, Colors.purple.shade300],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Welcome, ${user?.email ?? 'Guest'}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.person),
+              title: Text('Profile'),
+              onTap: () {
+                Navigator.of(context).pop(); // Close the drawer
+                // Add navigation logic here
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.bookmark),
+              title: Text('Bookmarks'),
+              onTap: () {
+                Navigator.of(context).pop(); // Close the drawer
+                // Add navigation logic here
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Settings'),
+              onTap: () {
+                Navigator.of(context).pop(); // Close the drawer
+                // Add navigation logic here
+              },
+            ),
+            Divider(), // Optional divider
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Logout'),
+              onTap: () => _signOut(context),
+            ),
+          ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
