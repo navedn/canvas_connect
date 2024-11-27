@@ -45,3 +45,4 @@ app.*.map.json
 # Flutter apk information must be hidden
 /android/app/google-services.json
 lib/firebase_options.dart
+*.env

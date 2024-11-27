@@ -6,6 +6,8 @@ import 'package:canvas_connect/register_screen.dart';
 import 'firebase_options.dart';
 import 'splash_screen.dart';
 import 'home_screen.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 // import 'profile_screen.dart';
 // import 'settings_screen.dart';
 
@@ -95,6 +97,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await dotenv.load(fileName: "APIKEYS.env");
+
   runApp(MyApp());
 }
 

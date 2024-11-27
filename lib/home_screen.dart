@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'messaging_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -11,12 +14,58 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController _newPasswordController = TextEditingController();
+  String _apiKey = dotenv.env['PIXABAY_API_KEY'] ?? 'not working';
+  // Replace with your Pixabay API key
+  List<dynamic> _images = [];
+  bool _isLoading = false;
 
   int _selectedIndex = 0; // Track the selected index for BottomNavigationBar
 
   final List<Widget> _pages = [];
 
   late String _username = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchImages(); // Fetch images when the screen loads
+  }
+
+// Fetch images from Pixabay API
+  Future<void> _fetchImages() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'https://pixabay.com/api/?key=$_apiKey&q=art&image_type=photo&per_page=20'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _images = data['hits'];
+        });
+      } else {
+        _showError('Failed to fetch images. Try again later.');
+      }
+    } catch (e) {
+      _showError('An error occurred: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+// Show error message
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   // Function to change password directly
   Future<void> _changePassword(BuildContext context) async {
@@ -190,43 +239,42 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (user != null) ...[
-              Text(
-                'Logged in as:',
-                style: TextStyle(fontSize: 16),
-              ),
-              SizedBox(height: 8),
-              Text(
-                user.email ?? '',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 24),
-              TextField(
-                controller: _newPasswordController,
-                decoration: InputDecoration(
-                  labelText: 'New Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => _changePassword(context),
-                child: Text('Change Password'),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => _signOut(context),
-                child: Text('Logout'),
-              ),
-            ],
-          ],
-        ),
+      body: RefreshIndicator(
+        onRefresh: _fetchImages,
+        child: _isLoading
+            ? Center(child: CircularProgressIndicator())
+            : _images.isEmpty
+                ? Center(child: Text('No images found. Pull to refresh.'))
+                : GridView.builder(
+                    padding: const EdgeInsets.all(8.0),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, // Number of columns
+                      crossAxisSpacing: 8.0,
+                      mainAxisSpacing: 8.0,
+                    ),
+                    itemCount: _images.length,
+                    itemBuilder: (context, index) {
+                      final image = _images[index];
+                      return GestureDetector(
+                        onTap: () {
+                          // Handle image tap if needed
+                        },
+                        child: Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 4,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              image['webformatURL'],
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.pink,
