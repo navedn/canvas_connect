@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Navigate based on selected index
     if (index == 1) {
-      Navigator.of(context).push(
+      Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => MessagingScreen(username: _username),
         ),

@@ -1,3 +1,4 @@
+import 'package:canvas_connect/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,6 +19,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
   late String _currentUserId;
   List<Map<String, dynamic>> _contacts = [];
+
+  int _selectedIndex = 1;
 
   @override
   void initState() {
@@ -47,6 +50,8 @@ class _MessagingScreenState extends State<MessagingScreen> {
         _contacts = contactsSnapshot.docs
             .map((doc) => doc.data() as Map<String, dynamic>)
             .toList();
+
+        _contacts.sort((a, b) => a['username'].compareTo(b['username']));
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -126,6 +131,26 @@ class _MessagingScreenState extends State<MessagingScreen> {
     }
   }
 
+  Future<void> _signOut(BuildContext context) async {
+    await _auth.signOut();
+    Navigator.of(context).pushReplacementNamed('/login');
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    // Navigate based on selected index
+    if (index == 0) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
+        ),
+      );
+    }
+  }
+
   // Generate a unique chat ID based on user IDs
   String _generateChatId(String userId1, String userId2) {
     return userId1.hashCode <= userId2.hashCode
@@ -185,33 +210,180 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Text('Messages'),
+        centerTitle: true,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(), // Open Drawer
+          ),
+        ),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade300, Colors.purple.shade300],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Welcome, ${user?.email ?? 'Guest'}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.person),
+              title: Text('Profile'),
+              onTap: () {
+                Navigator.of(context).pop(); // Close the drawer
+                // Add navigation logic here
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.bookmark),
+              title: Text('Bookmarks'),
+              onTap: () {
+                Navigator.of(context).pop(); // Close the drawer
+                // Add navigation logic here
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Settings'),
+              onTap: () {
+                Navigator.of(context).pop();
+                // Add navigation logic here
+              },
+            ),
+            Divider(), // Optional divider
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Logout'),
+              onTap: () => _signOut(context),
+            ),
+          ],
+        ),
       ),
       body: ListView.builder(
         itemCount: _contacts.length,
         itemBuilder: (context, index) {
           final contact = _contacts[index];
-          return ListTile(
-            title: Text(contact['username']),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => ChatScreen(
-                    chatId: _generateChatId(_currentUserId, contact['userId']),
-                    currentUserId: _currentUserId, // Pass the current user ID
-                    messageUsername: contact['username'],
+          return Padding(
+            padding:
+                const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 4,
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade300,
+                  child: Text(
+                    contact['username'][0].toUpperCase(),
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
-              );
-            },
+                title: Text(
+                  contact['username'],
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                trailing: Icon(Icons.chat, color: Colors.blue.shade300),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => ChatScreen(
+                        chatId: _generateChatId(
+                          _currentUserId,
+                          contact['userId'],
+                        ),
+                        currentUserId: _currentUserId,
+                        messageUsername: contact['username'],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddContactDialog,
-        child: Icon(Icons.add),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade300, Colors.purple.shade300],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: _showAddContactDialog,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Icon(Icons.add),
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.pink,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.black,
+
+        currentIndex: _selectedIndex, // Set the currently selected index
+        onTap: _onItemTapped, // Handle tab item selection
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.message),
+            label: 'Messages',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart_checkout),
+            label: 'Cart',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
       ),
     );
   }
@@ -291,6 +463,15 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Text('Messaging: @' + widget.messageUsername),
       ),
       body: Column(
