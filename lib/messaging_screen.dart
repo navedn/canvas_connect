@@ -201,6 +201,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
                   builder: (context) => ChatScreen(
                     chatId: _generateChatId(_currentUserId, contact['userId']),
                     currentUserId: _currentUserId, // Pass the current user ID
+                    messageUsername: contact['username'],
                   ),
                 ),
               );
@@ -219,8 +220,12 @@ class _MessagingScreenState extends State<MessagingScreen> {
 class ChatScreen extends StatefulWidget {
   final String chatId;
   final String currentUserId;
+  final String messageUsername;
 
-  ChatScreen({required this.chatId, required this.currentUserId});
+  ChatScreen(
+      {required this.chatId,
+      required this.currentUserId,
+      required this.messageUsername});
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -271,6 +276,7 @@ class _ChatScreenState extends State<ChatScreen> {
             .add({
           'senderId': widget.currentUserId,
           'message': message,
+          'senderUsername': widget.messageUsername,
           'timestamp': FieldValue.serverTimestamp(),
         });
         _messageController.clear();
@@ -285,7 +291,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat'),
+        title: Text('Messaging: @' + widget.messageUsername),
       ),
       body: Column(
         children: [
@@ -319,7 +325,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     return FutureBuilder<String>(
                       future: _getUsername(senderId),
                       builder: (context, snapshot) {
-                        final username = snapshot.data ??
+                        final username = widget.messageUsername ??
                             'Loading...'; // Display while loading
                         return Align(
                           alignment: isCurrentUser
