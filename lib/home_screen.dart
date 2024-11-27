@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'messaging_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'profile_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -210,8 +211,9 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: Icon(Icons.person),
               title: Text('Profile'),
               onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
-                // Add navigation logic here
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => ProfileScreen(),
+                ));
               },
             ),
             ListTile(
