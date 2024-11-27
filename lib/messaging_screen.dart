@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class MessagingScreen extends StatefulWidget {
   @override
@@ -217,7 +218,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
-  final String currentUserId; // Add currentUserId to constructor
+  final String currentUserId;
 
   ChatScreen({required this.chatId, required this.currentUserId});
 
@@ -230,6 +231,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   late Stream<QuerySnapshot> _messagesStream;
 
+  // Cache to store usernames
+  final Map<String, String> _usernamesCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -241,7 +245,21 @@ class _ChatScreenState extends State<ChatScreen> {
         .snapshots();
   }
 
-  // Send a new message to Firestore
+  Future<String> _getUsername(String userId) async {
+    if (_usernamesCache.containsKey(userId)) {
+      return _usernamesCache[userId]!;
+    }
+
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final username = userDoc.data()?['username'] ?? 'Unknown';
+      _usernamesCache[userId] = username;
+      return username;
+    } catch (e) {
+      return 'Unknown';
+    }
+  }
+
   Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
     if (message.isNotEmpty) {
@@ -251,8 +269,7 @@ class _ChatScreenState extends State<ChatScreen> {
             .doc(widget.chatId)
             .collection('messages')
             .add({
-          'senderId': widget
-              .currentUserId, // Use currentUserId passed from MessagingScreen
+          'senderId': widget.currentUserId,
           'message': message,
           'timestamp': FieldValue.serverTimestamp(),
         });
@@ -267,7 +284,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Chat')),
+      appBar: AppBar(
+        title: Text('Chat'),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -290,21 +309,81 @@ class _ChatScreenState extends State<ChatScreen> {
                         messages[index].data() as Map<String, dynamic>;
                     final senderId = message['senderId'];
                     final messageText = message['message'];
-                    final timestamp = message['timestamp'];
-                    String formattedTime = 'No timestamp';
+                    final timestamp = message['timestamp'] as Timestamp?;
+                    final formattedTime = timestamp != null
+                        ? DateFormat('MM/dd/yyyy hh:mm a')
+                            .format(timestamp.toDate())
+                        : 'No timestamp';
+                    final isCurrentUser = senderId == widget.currentUserId;
 
-                    if (timestamp != null) {
-                      formattedTime = (timestamp as Timestamp)
-                          .toDate()
-                          .toLocal()
-                          .toString();
-                    }
-
-                    return ListTile(
-                      title: Text(
-                          senderId), // You can map senderId to username if needed
-                      subtitle: Text(messageText),
-                      trailing: Text(formattedTime),
+                    return FutureBuilder<String>(
+                      future: _getUsername(senderId),
+                      builder: (context, snapshot) {
+                        final username = snapshot.data ??
+                            'Loading...'; // Display while loading
+                        return Align(
+                          alignment: isCurrentUser
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: EdgeInsets.symmetric(
+                                vertical: 4.0, horizontal: 8.0),
+                            padding: EdgeInsets.all(12.0),
+                            decoration: BoxDecoration(
+                              color: isCurrentUser
+                                  ? Colors.blueAccent.withOpacity(0.8)
+                                  : Colors.grey[300],
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                topRight: Radius.circular(12),
+                                bottomLeft: isCurrentUser
+                                    ? Radius.circular(12)
+                                    : Radius.zero,
+                                bottomRight: isCurrentUser
+                                    ? Radius.zero
+                                    : Radius.circular(12),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (!isCurrentUser)
+                                  Text(
+                                    username,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                SizedBox(height: 4),
+                                Text(
+                                  messageText,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: isCurrentUser
+                                        ? Colors.white
+                                        : Colors.black,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: Text(
+                                    formattedTime,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isCurrentUser
+                                          ? Colors.white70
+                                          : Colors.black54,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );
@@ -318,12 +397,25 @@ class _ChatScreenState extends State<ChatScreen> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    decoration: InputDecoration(hintText: 'Enter message'),
+                    decoration: InputDecoration(
+                      labelText: 'Enter message',
+                      prefixIcon: Icon(Icons.message, color: Colors.blueAccent),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.7),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                      ),
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.send),
+                SizedBox(width: 8),
+                ElevatedButton(
                   onPressed: _sendMessage,
+                  style: ElevatedButton.styleFrom(
+                    shape: CircleBorder(),
+                    padding: EdgeInsets.all(14),
+                  ),
+                  child: Icon(Icons.send, color: Colors.black),
                 ),
               ],
             ),
