@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String? userId; // null means it's the logged-in user's profile
+  final String profileUsername;
 
-  ProfileScreen({this.userId});
+  ProfileScreen({this.userId, required this.profileUsername});
 
   @override
   Widget build(BuildContext context) {

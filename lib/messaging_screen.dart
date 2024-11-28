@@ -249,7 +249,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    'Welcome, ${user?.email ?? 'Guest'}',
+                    'Welcome, ${'@${widget.username}' ?? 'Guest'}',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
