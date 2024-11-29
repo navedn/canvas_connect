@@ -310,6 +310,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   SizedBox(height: 16),
+
+                  // Portfolio Section
+                  Text(
+                    'Portfolio',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  _portfolioImages.isEmpty
+                      ? Text('No portfolio items yet.')
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 8.0,
+                            mainAxisSpacing: 8.0,
+                          ),
+                          itemCount: _portfolioImages.length,
+                          itemBuilder: (context, index) {
+                            final image = _portfolioImages[index];
+                            return GestureDetector(
+                              onTap: () => _viewImageDetails(image),
+                              child: Card(
+                                elevation: 2,
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: Image.network(
+                                        image['imageUrl'],
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Text(
+                                      '\$${image['price'].toStringAsFixed(2)}',
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                  SizedBox(height: 16),
                 ],
               ),
             ),
