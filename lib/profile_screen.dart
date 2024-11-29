@@ -140,7 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isOwnProfile = widget.userId == null;
+    final isOwnProfile = widget.userId == _profileUID;
 
     return Scaffold(
       appBar: AppBar(
