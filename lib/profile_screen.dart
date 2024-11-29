@@ -1,6 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -15,11 +19,13 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   late String _currentUserId;
   late String _aboutMe;
   String? _profileUID;
   bool _isLoading = true;
+  List<Map<String, dynamic>> _portfolioImages = [];
 
   @override
   void initState() {
@@ -138,6 +144,113 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _fetchPortfolioImages() async {
+    try {
+      final imagesSnapshot = await _firestore
+          .collection('portfolio')
+          .where('userId', isEqualTo: _profileUID)
+          .get();
+
+      setState(() {
+        _portfolioImages = imagesSnapshot.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching portfolio images: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final file = File(pickedFile.path);
+
+      // Show a dialog to input the price
+      final TextEditingController priceController = TextEditingController();
+      await showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text('Set a Price for Your Art'),
+            content: TextField(
+              controller: priceController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(hintText: 'Enter price in USD'),
+            ),
+            actions: [
+              TextButton(
+                child: Text('Cancel'),
+                onPressed: () => Navigator.pop(context),
+              ),
+              ElevatedButton(
+                child: Text('Upload'),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          );
+        },
+      );
+
+      if (priceController.text.isEmpty) return;
+
+      try {
+        final ref = _storage.ref().child(
+            'portfolio/${_currentUserId}/${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+        // Upload file
+        final uploadTask = ref.putFile(file);
+        final snapshot = await uploadTask.whenComplete(() => null);
+
+        // Get the download URL
+        final imageUrl = await snapshot.ref.getDownloadURL();
+
+        // Save metadata to Firestore
+        await _firestore.collection('portfolio').add({
+          'userId': _currentUserId,
+          'imageUrl': imageUrl,
+          'price': double.parse(priceController.text),
+          'uploadedAt': Timestamp.now(),
+        });
+
+        // Update UI
+        setState(() {
+          _portfolioImages.add({
+            'userId': _currentUserId,
+            'imageUrl': imageUrl,
+            'price': double.parse(priceController.text),
+          });
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Image uploaded successfully!')),
+        );
+      } catch (e) {
+        print('Error uploading image: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload image.')),
+        );
+      }
+    }
+  }
+
+  void _viewImageDetails(Map<String, dynamic> imageData) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ImageDetailsScreen(imageData: imageData),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isOwnProfile = widget.userId == _profileUID;
@@ -145,8 +258,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isOwnProfile
-            ? 'My Profile, ${widget.profileUsername}'
-            : 'Profile: ${_profileUID ?? 'Loading...'}'),
+            ? 'My Profile'
+            : '@${widget.profileUsername}\'s Profile'),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -200,6 +313,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+      floatingActionButton: isOwnProfile
+          ? FloatingActionButton(
+              onPressed: _uploadImage,
+              child: Icon(Icons.add),
+            )
+          : null,
+    );
+  }
+}
+
+class ImageDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> imageData;
+
+  const ImageDetailsScreen({required this.imageData});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Image Details')),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.network(imageData['imageUrl']),
+            SizedBox(height: 16),
+            Text('Uploaded by: ${imageData['userId']}'),
+            Text('Price: \$${imageData['price'].toStringAsFixed(2)}'),
+          ],
+        ),
+      ),
     );
   }
 }
