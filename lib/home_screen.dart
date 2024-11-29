@@ -29,8 +29,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchImages(); // Fetch images when the screen loads
     _fetchUsername();
+    _fetchImages(); // Fetch images when the screen loads
   }
 
 // Fetch images from Pixabay API
@@ -198,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    'Welcome, ${'@${_username}' ?? 'Guest'}',
+                    'Welcome, ${'@$_username' ?? 'Guest'}',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -213,8 +213,8 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Text('Profile'),
               onTap: () {
                 Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) =>
-                      ProfileScreen(profileUsername: _username),
+                  builder: (context) => ProfileScreen(
+                      userId: user?.uid, profileUsername: _username),
                 ));
               },
             ),

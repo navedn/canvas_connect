@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
+import 'profile_screen.dart';
+
 class MessagingScreen extends StatefulWidget {
   @override
   final String username;
@@ -473,6 +475,15 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ),
         title: Text('Messaging: @' + widget.messageUsername),
+        actions: [
+          IconButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                        userId: widget.currentUserId,
+                        profileUsername: widget.messageUsername),
+                  )),
+              icon: Icon(Icons.person)),
+        ],
       ),
       body: Column(
         children: [
