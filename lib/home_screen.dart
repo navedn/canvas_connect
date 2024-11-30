@@ -14,11 +14,15 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   final TextEditingController _newPasswordController = TextEditingController();
   String _apiKey = dotenv.env['PIXABAY_API_KEY'] ?? 'not working';
   // Replace with your Pixabay API key
   List<dynamic> _images = [];
   bool _isLoading = false;
+
+  List<dynamic> _portfolioImages = [];
 
   int _selectedIndex = 0; // Track the selected index for BottomNavigationBar
 
@@ -31,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _fetchUsername();
     _fetchImages(); // Fetch images when the screen loads
+    _fetchPortfolioImages();
   }
 
 // Fetch images from Pixabay API
@@ -55,6 +60,32 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       _showError('An error occurred: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchPortfolioImages() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final imagesSnapshot = await _firestore.collection('portfolio').get();
+      if (mounted) {
+        setState(() {
+          _portfolioImages = imagesSnapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList();
+
+          // Shuffle the images list to randomize order
+          _portfolioImages.shuffle();
+        });
+      }
+    } catch (e) {
+      print('Error fetching portfolio images: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -244,24 +275,30 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: _fetchImages,
+        onRefresh: _fetchPortfolioImages,
         child: _isLoading
             ? Center(child: CircularProgressIndicator())
-            : _images.isEmpty
-                ? Center(child: Text('No images found. Pull to refresh.'))
+            : _portfolioImages.isEmpty
+                ? Center(child: Text('No portfolio images found.'))
                 : GridView.builder(
                     padding: const EdgeInsets.all(8.0),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, // Number of columns
+                      crossAxisCount: 2,
                       crossAxisSpacing: 8.0,
                       mainAxisSpacing: 8.0,
                     ),
-                    itemCount: _images.length,
+                    itemCount: _portfolioImages.length,
                     itemBuilder: (context, index) {
-                      final image = _images[index];
+                      final image = _portfolioImages[index];
                       return GestureDetector(
                         onTap: () {
-                          // Handle image tap if needed
+                          Navigator.of(context).push(MaterialPageRoute(
+                            builder: (context) => DetailScreen(
+                              imageUrl: image['imageUrl'],
+                              userId: image['userId'],
+                              price: image['price'].toString(),
+                            ),
+                          ));
                         },
                         child: Card(
                           shape: RoundedRectangleBorder(
@@ -271,7 +308,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
                             child: Image.network(
-                              image['webformatURL'],
+                              image[
+                                  'imageUrl'], // Ensure 'imageUrl' key exists in Firestore
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -303,6 +341,55 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Settings',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class DetailScreen extends StatelessWidget {
+  final String imageUrl;
+  final String userId;
+  final String price;
+
+  DetailScreen({
+    required this.imageUrl,
+    required this.userId,
+    required this.price,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Image Details'),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'User ID: $userId',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Price: $price',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
         ],
       ),
