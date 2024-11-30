@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'splash_screen.dart';
 import 'home_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 // import 'profile_screen.dart';
 // import 'settings_screen.dart';
@@ -134,12 +135,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String? _errorMessage;
 
+  Future<void> generateDebugToken() async {
+    try {
+      // Force token generation
+      String? debugToken = await FirebaseAppCheck.instance.getToken(true);
+      print("Debug Token: $debugToken"); // Copy this token
+    } catch (e) {
+      print("Error generating debug token: $e");
+    }
+  }
+
   Future<void> _login() async {
     try {
       await _auth.signInWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
       );
+      await generateDebugToken();
+
       Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
       setState(() {

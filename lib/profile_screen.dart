@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String? userId;
@@ -22,7 +23,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   late String _currentUserId;
-  late String _aboutMe;
+  late String _aboutMe = "Loading...";
   String? _profileUID;
   bool _isLoading = true;
   List<Map<String, dynamic>> _portfolioImages = [];
@@ -32,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _initializeUser();
     _fetchProfileUID();
+    _fetchPortfolioImages();
   }
 
   void _initializeUser() {
@@ -191,9 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               ElevatedButton(
                 child: Text('Upload'),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
               ),
             ],
           );
@@ -203,19 +203,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (priceController.text.isEmpty) return;
 
       try {
-        final ref = _storage.ref().child(
-            'portfolio/${_currentUserId}/${DateTime.now().millisecondsSinceEpoch}.jpg');
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) {
+          print('No user is signed in!');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('You must be logged in to upload images.')),
+          );
+          return;
+        }
 
-        // Upload file
+        final userId = currentUser.uid;
+
+        print('Uploading image for user ID: $userId');
+
+        // Upload to Firebase Storage
+        final ref = _storage.ref().child(
+            'portfolio/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg');
         final uploadTask = ref.putFile(file);
         final snapshot = await uploadTask.whenComplete(() => null);
-
-        // Get the download URL
         final imageUrl = await snapshot.ref.getDownloadURL();
 
         // Save metadata to Firestore
         await _firestore.collection('portfolio').add({
-          'userId': _currentUserId,
+          'userId': userId,
           'imageUrl': imageUrl,
           'price': double.parse(priceController.text),
           'uploadedAt': Timestamp.now(),
@@ -224,7 +234,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Update UI
         setState(() {
           _portfolioImages.add({
-            'userId': _currentUserId,
+            'userId': userId,
             'imageUrl': imageUrl,
             'price': double.parse(priceController.text),
           });
