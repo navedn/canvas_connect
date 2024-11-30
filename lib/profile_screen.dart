@@ -50,24 +50,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .doc(widget.profileUsername)
           .get();
 
-      setState(() {
-        _profileUID = result.data()?['userId'] as String?;
-      });
-
-      // Fetch About Me only after setting the profile UID
-      if (_profileUID != null) {
-        _fetchAboutMe();
-      } else {
+      if (mounted) {
         setState(() {
-          _isLoading = false; // Stop loading if no profile UID found
+          _profileUID = result.data()?['userId'] as String?;
         });
+
+        // Fetch About Me only after setting the profile UID
+        if (_profileUID != null) {
+          _fetchAboutMe();
+        } else {
+          if (mounted) {
+            setState(() {
+              _isLoading = false; // Stop loading if no profile UID found
+            });
+          }
+        }
       }
     } catch (e) {
       print('Error fetching profile UID: $e');
-      setState(() {
-        _profileUID = null;
-        _isLoading = false; // Stop loading if an error occurs
-      });
+      if (mounted) {
+        setState(() {
+          _profileUID = null;
+          _isLoading = false; // Stop loading if an error occurs
+        });
+      }
     }
   }
 
@@ -76,14 +82,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final userDoc =
           await _firestore.collection('users').doc(_profileUID).get();
 
-      setState(() {
-        _aboutMe = userDoc.data()?['aboutMe'] ?? 'No information provided.';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _aboutMe = userDoc.data()?['aboutMe'] ?? 'No information provided.';
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching profile: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching profile: $e')),
+        );
+      }
     }
   }
 
@@ -153,17 +163,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .where('userId', isEqualTo: _profileUID)
           .get();
 
-      setState(() {
-        _portfolioImages = imagesSnapshot.docs
-            .map((doc) => doc.data() as Map<String, dynamic>)
-            .toList();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _portfolioImages = imagesSnapshot.docs
+              .map((doc) => doc.data() as Map<String, dynamic>)
+              .toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error fetching portfolio images: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -231,14 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'uploadedAt': Timestamp.now(),
         });
 
-        // Update UI
-        setState(() {
-          _portfolioImages.add({
-            'userId': userId,
-            'imageUrl': imageUrl,
-            'price': double.parse(priceController.text),
-          });
-        });
+        _fetchPortfolioImages();
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Image uploaded successfully!')),
@@ -264,6 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isOwnProfile = widget.userId == _profileUID;
+    _fetchPortfolioImages();
 
     return Scaffold(
       appBar: AppBar(
