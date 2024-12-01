@@ -247,12 +247,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     } else if (index == 2) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (context) => ShoppingScreen(
-          cart: _cart,
-          saveCartToFirestore: saveCartToFirestore,
-        ),
-      ));
+      Navigator.of(context)
+          .push(MaterialPageRoute(
+            builder: (context) => ShoppingScreen(),
+          ))
+          .then((_) => _loadCartFromFirestore()); // Refresh cart on return
     }
   }
 
