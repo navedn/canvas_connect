@@ -7,6 +7,8 @@ import 'profile_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'shopping_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -21,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Replace with your Pixabay API key
   List<dynamic> _images = [];
   bool _isLoading = false;
+  List<Map<String, dynamic>> _cart = []; // Shopping cart items
 
   List<dynamic> _portfolioImages = [];
 
@@ -36,6 +39,49 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchUsername();
     _fetchImages(); // Fetch images when the screen loads
     _fetchPortfolioImages();
+    _loadCartFromFirestore();
+  }
+
+  @override
+  void dispose() {
+    saveCartToFirestore({'cart': _cart}); // Save cart when screen is disposed
+    _newPasswordController.dispose();
+    super.dispose();
+  }
+
+// Add to cart method
+  void _addToCart(Map<String, dynamic> item) async {
+    setState(() {
+      _cart.add(item);
+    });
+
+    try {
+      await saveCartToFirestore({'cart': _cart});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added to cart and saved to Firestore!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save cart to Firestore: $e')),
+      );
+    }
+  }
+
+  // Load cart from Firestore
+  Future<void> _loadCartFromFirestore() async {
+    try {
+      final fetchedCart = await fetchCartFromFirestore();
+      setState(() {
+        _cart = (fetchedCart['cart'] as List<dynamic>?)
+                ?.map((item) => Map<String, dynamic>.from(item))
+                .toList() ??
+            [];
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load cart: $e')),
+      );
+    }
   }
 
 // Fetch images from Pixabay API
@@ -168,6 +214,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> saveCartToFirestore(Map<String, dynamic> cart) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('carts').doc(user.uid).set(cart);
+  }
+
+  // Fetch cart from Firestore
+  Future<Map<String, dynamic>> fetchCartFromFirestore() async {
+    final user = _auth.currentUser;
+    if (user == null) return {};
+
+    final snapshot = await _firestore.collection('carts').doc(user.uid).get();
+    if (snapshot.exists) {
+      return snapshot.data() as Map<String, dynamic>;
+    }
+    return {};
+  }
+
   // Function to handle Bottom Navigation Bar item selection
   void _onItemTapped(int index) {
     setState(() {
@@ -181,6 +246,13 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context) => MessagingScreen(username: _username),
         ),
       );
+    } else if (index == 2) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => ShoppingScreen(
+          cart: _cart,
+          saveCartToFirestore: saveCartToFirestore,
+        ),
+      ));
     }
   }
 
@@ -297,6 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               imageUrl: image['imageUrl'],
                               userId: image['userId'],
                               price: image['price'].toString(),
+                              onAddToCart: () => _addToCart(image),
                             ),
                           ));
                         },
@@ -352,11 +425,13 @@ class DetailScreen extends StatelessWidget {
   final String imageUrl;
   final String userId;
   final String price;
+  final VoidCallback onAddToCart;
 
   DetailScreen({
     required this.imageUrl,
     required this.userId,
     required this.price,
+    required this.onAddToCart,
   });
 
   @override
@@ -387,6 +462,11 @@ class DetailScreen extends StatelessWidget {
                 Text(
                   'Price: $price',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: onAddToCart,
+                  child: Text('Add to Cart'),
                 ),
               ],
             ),
