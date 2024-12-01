@@ -87,25 +87,142 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
           ? Center(child: CircularProgressIndicator())
           : _cart.isEmpty
               ? Center(child: Text('Your cart is empty.'))
-              : ListView.builder(
-                  itemCount: _cart.length,
-                  itemBuilder: (context, index) {
-                    final item = _cart[index];
-                    return ListTile(
-                      leading: Image.network(
-                        item['imageUrl'],
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.cover,
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _cart.length,
+                        itemBuilder: (context, index) {
+                          final item = _cart[index];
+                          return ListTile(
+                            leading: Image.network(
+                              item['imageUrl'],
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                            ),
+                            title: Text('Price: ${item['price']}'),
+                            trailing: IconButton(
+                              icon: Icon(Icons.delete),
+                              onPressed: () => _removeItem(index),
+                            ),
+                          );
+                        },
                       ),
-                      title: Text('Price: ${item['price']}'),
-                      trailing: IconButton(
-                        icon: Icon(Icons.delete),
-                        onPressed: () => _removeItem(index),
-                      ),
-                    );
-                  },
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (_cart.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Your cart is empty!')),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CheckoutScreen(cart: _cart),
+                            ),
+                          );
+                        }
+                      },
+                      child: Text('Checkout'),
+                    ),
+                  ],
                 ),
+    );
+  }
+}
+
+class CheckoutScreen extends StatelessWidget {
+  final List<Map<String, dynamic>> cart;
+
+  CheckoutScreen({required this.cart});
+
+  Future<void> _completePurchase(BuildContext context) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // Save the purchase to the user's purchase history
+        final purchasesRef = FirebaseFirestore.instance
+            .collection('purchases')
+            .doc(user.uid)
+            .collection('history');
+
+        await purchasesRef.add({
+          'items': cart,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+
+        // Clear the user's cart
+        await FirebaseFirestore.instance
+            .collection('carts')
+            .doc(user.uid)
+            .set({'cart': []});
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchase completed!')),
+        );
+
+        // Navigate back to the shopping screen
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to complete purchase: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double total =
+        cart.fold(0.0, (sum, item) => sum + (item['price'] as num).toDouble());
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Checkout'),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: cart.length,
+              itemBuilder: (context, index) {
+                final item = cart[index];
+                return ListTile(
+                  leading: Image.network(
+                    item['imageUrl'],
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.cover,
+                  ),
+                  title: Text('Price: ${item['price']}'),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Total: \$${total.toStringAsFixed(2)}',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => _completePurchase(context),
+                  child: Text('Confirm Purchase'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
