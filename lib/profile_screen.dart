@@ -28,6 +28,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _portfolioImages = [];
 
+  List<Map<String, dynamic>> _purchaseHistory = [];
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Fetch About Me only after setting the profile UID
         if (_profileUID != null) {
           _fetchAboutMe();
+          _fetchPurchaseHistory();
         } else {
           if (mounted) {
             setState(() {
@@ -181,6 +184,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _fetchPurchaseHistory() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final historyQuerySnapshot = await FirebaseFirestore.instance
+            .collection('purchases')
+            .doc(_profileUID)
+            .collection('history')
+            .orderBy('timestamp', descending: true)
+            .get();
+
+        if (historyQuerySnapshot.docs.isNotEmpty) {
+          final fetchedHistory = historyQuerySnapshot.docs.map((doc) {
+            final data = doc.data();
+            return {
+              'items': List<Map<String, dynamic>>.from(data['items'] ?? []),
+              'timestamp': data['timestamp'] as Timestamp,
+            };
+          }).toList();
+
+          print('Fetched purchase history: $fetchedHistory'); // Debugging
+          setState(() {
+            _purchaseHistory = fetchedHistory;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching purchase history: $e'); // Debugging
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to fetch purchase history: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Future<void> _uploadImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -264,6 +309,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => ImageDetailsScreen(imageData: imageData),
+      ),
+    );
+  }
+
+  void _viewPurchaseDetails(Map<String, dynamic> purchase) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PurchaseDetailsScreen(purchase: purchase),
       ),
     );
   }
@@ -372,6 +426,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           },
                         ),
                   SizedBox(height: 16),
+                  if (_purchaseHistory.isNotEmpty) ...[
+                    SizedBox(height: 16),
+                    Text(
+                      'Purchase History',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 8),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: _purchaseHistory.length,
+                      itemBuilder: (context, index) {
+                        final purchase = _purchaseHistory[index];
+                        return Card(
+                          child: ListTile(
+                            title: Text(
+                                'Total: \$${(purchase['items'] as List).cast<Map<String, dynamic>>().fold<double>(
+                                      0.0,
+                                      (sum, item) =>
+                                          sum +
+                                          (item['price'] as num).toDouble(),
+                                    ).toStringAsFixed(2)}'),
+                            subtitle: Text(
+                                'Purchased on: ${purchase['timestamp'].toDate()}'),
+                            trailing: Icon(Icons.arrow_forward),
+                            onTap: () => _viewPurchaseDetails(purchase),
+                          ),
+                        );
+                      },
+                    ),
+                  ]
                 ],
               ),
             ),
@@ -402,6 +488,51 @@ class ImageDetailsScreen extends StatelessWidget {
             SizedBox(height: 16),
             Text('Uploaded by: ${imageData['userId']}'),
             Text('Price: \$${imageData['price'].toStringAsFixed(2)}'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PurchaseDetailsScreen extends StatelessWidget {
+  final Map<String, dynamic> purchase;
+
+  const PurchaseDetailsScreen({required this.purchase});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = purchase['items'] as List<Map<String, dynamic>>;
+    return Scaffold(
+      appBar: AppBar(title: Text('Purchase Details')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Purchased on: ${purchase['timestamp'].toDate()}',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return ListTile(
+                    leading: Image.network(
+                      item['imageUrl'],
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                    ),
+                    title: Text(item['title'] ?? 'Unknown Item'),
+                    subtitle: Text('\$${item['price']}'),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
