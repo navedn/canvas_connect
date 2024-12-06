@@ -365,6 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () {
                           Navigator.of(context).push(MaterialPageRoute(
                             builder: (context) => DetailScreen(
+                              currentUserID: user!.uid,
                               imageUrl: image['imageUrl'],
                               userId: image['userId'],
                               price: image['price'].toString(),
@@ -424,20 +425,69 @@ class DetailScreen extends StatelessWidget {
   final String imageUrl;
   final String userId;
   final String price;
+  final String currentUserID;
   final VoidCallback onAddToCart;
 
   DetailScreen({
+    required this.currentUserID,
     required this.imageUrl,
     required this.userId,
     required this.price,
     required this.onAddToCart,
   });
 
+  Future<String> _fetchAccountUsername() async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      return userDoc.data()?['username'] ?? 'Unknown';
+    } catch (e) {
+      return 'Error fetching username';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Image Details'),
+        actions: [
+          FutureBuilder<String>(
+            future: _fetchAccountUsername(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return IconButton(
+                  onPressed: null,
+                  icon: Icon(Icons.person),
+                );
+              }
+
+              if (snapshot.hasError || snapshot.data == null) {
+                return IconButton(
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to fetch user profile')),
+                  ),
+                  icon: Icon(Icons.person),
+                );
+              }
+
+              return IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      userId: currentUserID,
+                      profileUsername: snapshot.data!,
+                    ),
+                  ));
+                },
+                icon: Icon(Icons.person),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -450,24 +500,41 @@ class DetailScreen extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'User ID: $userId',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Price: $price',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: onAddToCart,
-                  child: Text('Add to Cart'),
-                ),
-              ],
+            child: FutureBuilder<String>(
+              future: _fetchAccountUsername(),
+              builder: (context, snapshot) {
+                String username = 'Loading...';
+
+                if (snapshot.connectionState == ConnectionState.done) {
+                  if (snapshot.hasError) {
+                    username = 'Error fetching username';
+                  } else if (snapshot.hasData) {
+                    username = snapshot.data!;
+                  }
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Uploaded by: $username',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Price: $price',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: onAddToCart,
+                      child: Text('Add to Cart'),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
