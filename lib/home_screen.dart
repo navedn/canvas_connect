@@ -78,9 +78,12 @@ class _HomeScreenState extends State<HomeScreen> {
             [];
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load cart: $e')),
-      );
+      if (mounted) {
+        // Check if the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load cart: $e')),
+        );
+      }
     }
   }
 
@@ -141,9 +144,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // Show error message
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
   }
 
   // Function to change password directly
@@ -248,8 +253,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else if (index == 2) {
       Navigator.of(context)
-          .push(MaterialPageRoute(
-            builder: (context) => ShoppingScreen(),
+          .pushReplacement(MaterialPageRoute(
+            builder: (context) => ShoppingScreen(username: _username),
           ))
           .then((_) => _loadCartFromFirestore()); // Refresh cart on return
     }
@@ -320,22 +325,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 ));
               },
             ),
-            ListTile(
-              leading: Icon(Icons.bookmark),
-              title: Text('Bookmarks'),
-              onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
-                // Add navigation logic here
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.settings),
-              title: Text('Settings'),
-              onTap: () {
-                Navigator.of(context).pop();
-                // Add navigation logic here
-              },
-            ),
+            // ListTile(
+            //   leading: Icon(Icons.bookmark),
+            //   title: Text('Bookmarks'),
+            //   onTap: () {
+            //     Navigator.of(context).pop(); // Close the drawer
+            //     // Add navigation logic here
+            //   },
+            // ),
+            // ListTile(
+            //   leading: Icon(Icons.settings),
+            //   title: Text('Settings'),
+            //   onTap: () {
+            //     Navigator.of(context).pop();
+            //     // Add navigation logic here
+            //   },
+            // ),
             Divider(), // Optional divider
             ListTile(
               leading: Icon(Icons.logout),

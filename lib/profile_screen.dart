@@ -30,6 +30,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   List<Map<String, dynamic>> _purchaseHistory = [];
 
+  List<Map<String, dynamic>> _cart = []; // Shopping cart items
+
   @override
   void initState() {
     super.initState();
@@ -233,17 +235,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (pickedFile != null) {
       final file = File(pickedFile.path);
 
-      // Show a dialog to input the price
+      // Create controllers for user inputs
       final TextEditingController priceController = TextEditingController();
+      final TextEditingController titleController = TextEditingController();
+      final TextEditingController descriptionController =
+          TextEditingController();
+
+      // Show a dialog to input the title, description, and price
       await showDialog(
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: Text('Set a Price for Your Art'),
-            content: TextField(
-              controller: priceController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(hintText: 'Enter price in USD'),
+            title: Text('Upload Artwork'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(hintText: 'Enter title'),
+                  ),
+                  SizedBox(height: 8),
+                  TextField(
+                    controller: descriptionController,
+                    decoration:
+                        InputDecoration(hintText: 'Enter art description'),
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: 8),
+                  TextField(
+                    controller: priceController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(hintText: 'Enter price in USD'),
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -259,12 +285,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       );
 
-      if (priceController.text.isEmpty) return;
+      // Validate inputs
+      if (titleController.text.isEmpty ||
+          descriptionController.text.isEmpty ||
+          priceController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('All fields are required.')),
+        );
+        return;
+      }
 
       try {
         final currentUser = FirebaseAuth.instance.currentUser;
         if (currentUser == null) {
-          print('No user is signed in!');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('You must be logged in to upload images.')),
           );
@@ -272,8 +305,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         final userId = currentUser.uid;
-
-        print('Uploading image for user ID: $userId');
 
         // Upload to Firebase Storage
         final ref = _storage.ref().child(
@@ -286,6 +317,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _firestore.collection('portfolio').add({
           'userId': userId,
           'imageUrl': imageUrl,
+          'title': titleController.text.trim(),
+          'description': descriptionController.text.trim(),
           'price': double.parse(priceController.text),
           'uploadedAt': Timestamp.now(),
         });
@@ -293,12 +326,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _fetchPortfolioImages();
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Image uploaded successfully!')),
+          SnackBar(content: Text('Artwork uploaded successfully!')),
         );
       } catch (e) {
-        print('Error uploading image: $e');
+        print('Error uploading artwork: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload image.')),
+          SnackBar(content: Text('Failed to upload artwork.')),
         );
       }
     }
@@ -308,7 +341,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ImageDetailsScreen(imageData: imageData),
+        builder: (context) => ImageDetailsScreen(
+          imageData: imageData,
+          isOwnProfile: widget.userId == _profileUID,
+          onAddToCart: () => _addToCart(imageData),
+        ),
       ),
     );
   }
@@ -320,6 +357,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
         builder: (context) => PurchaseDetailsScreen(purchase: purchase),
       ),
     );
+  }
+
+  Future<Map<String, dynamic>> fetchCartFromFirestore() async {
+    final user = _auth.currentUser;
+    if (user == null) return {};
+
+    final snapshot = await _firestore.collection('carts').doc(user.uid).get();
+    if (snapshot.exists) {
+      return snapshot.data() as Map<String, dynamic>;
+    }
+    return {};
+  }
+
+  Future<void> _loadCartFromFirestore() async {
+    try {
+      final fetchedCart = await fetchCartFromFirestore();
+      setState(() {
+        _cart = (fetchedCart['cart'] as List<dynamic>?)
+                ?.map((item) => Map<String, dynamic>.from(item))
+                .toList() ??
+            [];
+      });
+    } catch (e) {
+      if (mounted) {
+        // Check if the widget is still mounted
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load cart: $e')),
+        );
+      }
+    }
+  }
+
+  void _addToCart(Map<String, dynamic> item) async {
+    setState(() {
+      _cart.add(item); // Add the item to the local cart
+    });
+
+    try {
+      await updateCartInFirestore(item); // Update Firestore cart
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added to cart successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update cart: $e')),
+      );
+    }
+  }
+
+  Future<void> updateCartInFirestore(Map<String, dynamic> item) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _firestore.collection('carts').doc(user.uid).set({
+        'cart': FieldValue.arrayUnion([item]), // Add the item to the array
+      }, SetOptions(merge: true)); // Merge with existing data
+    } catch (e) {
+      throw Exception('Failed to update Firestore: $e');
+    }
+  }
+
+  Future<void> saveCartToFirestore(Map<String, dynamic> cart) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('carts').doc(user.uid).set(cart);
   }
 
   @override
@@ -415,9 +519,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         fit: BoxFit.cover,
                                       ),
                                     ),
-                                    Text(
-                                      '\$${image['price'].toStringAsFixed(2)}',
-                                      style: TextStyle(fontSize: 14),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            image['title'] ?? 'Untitled',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          Text(
+                                            '\$${image['price'].toStringAsFixed(2)}',
+                                            style:
+                                                TextStyle(color: Colors.green),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -425,6 +544,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             );
                           },
                         ),
+
                   SizedBox(height: 16),
                   if (_purchaseHistory.isNotEmpty) ...[
                     SizedBox(height: 16),
@@ -473,23 +593,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class ImageDetailsScreen extends StatelessWidget {
   final Map<String, dynamic> imageData;
+  final bool isOwnProfile;
+  final VoidCallback? onAddToCart;
 
-  const ImageDetailsScreen({required this.imageData});
+  const ImageDetailsScreen({
+    required this.imageData,
+    required this.isOwnProfile,
+    this.onAddToCart,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Image Details')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.network(imageData['imageUrl']),
-            SizedBox(height: 16),
-            Text('Uploaded by: ${imageData['userId']}'),
-            Text('Price: \$${imageData['price'].toStringAsFixed(2)}'),
-          ],
-        ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.network(imageData['imageUrl']),
+          SizedBox(height: 16),
+          Text('Uploaded by: ${imageData['userId']}'),
+          Text('Price: \$${imageData['price'].toStringAsFixed(2)}'),
+          if (!isOwnProfile)
+            ElevatedButton(
+              onPressed: onAddToCart,
+              child: Text('Add to Cart'),
+            ),
+        ],
       ),
     );
   }
@@ -527,7 +656,7 @@ class PurchaseDetailsScreen extends StatelessWidget {
                       height: 50,
                       fit: BoxFit.cover,
                     ),
-                    title: Text(item['title'] ?? 'Unknown Item'),
+                    title: Text(item['title'] ?? 'Untitled'),
                     subtitle: Text('\$${item['price']}'),
                   );
                 },

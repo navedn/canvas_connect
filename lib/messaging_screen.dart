@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import 'profile_screen.dart';
+import 'shopping_screen.dart';
 
 class MessagingScreen extends StatefulWidget {
   @override
@@ -150,6 +151,10 @@ class _MessagingScreenState extends State<MessagingScreen> {
           builder: (context) => HomeScreen(),
         ),
       );
+    } else if (index == 2) {
+      Navigator.of(context).pushReplacement(MaterialPageRoute(
+        builder: (context) => ShoppingScreen(username: widget.username),
+      ));
     }
   }
 
@@ -265,26 +270,29 @@ class _MessagingScreenState extends State<MessagingScreen> {
               leading: Icon(Icons.person),
               title: Text('Profile'),
               onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => ProfileScreen(
+                      userId: user!.uid, profileUsername: widget.username),
+                )); // Close the drawer
                 // Add navigation logic here
               },
             ),
-            ListTile(
-              leading: Icon(Icons.bookmark),
-              title: Text('Bookmarks'),
-              onTap: () {
-                Navigator.of(context).pop(); // Close the drawer
-                // Add navigation logic here
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.settings),
-              title: Text('Settings'),
-              onTap: () {
-                Navigator.of(context).pop();
-                // Add navigation logic here
-              },
-            ),
+            // ListTile(
+            //   leading: Icon(Icons.bookmark),
+            //   title: Text('Bookmarks'),
+            //   onTap: () {
+            //     Navigator.of(context).pop(); // Close the drawer
+            //     // Add navigation logic here
+            //   },
+            // ),
+            // ListTile(
+            //   leading: Icon(Icons.settings),
+            //   title: Text('Settings'),
+            //   onTap: () {
+            //     Navigator.of(context).pop();
+            //     // Add navigation logic here
+            //   },
+            // ),
             Divider(), // Optional divider
             ListTile(
               leading: Icon(Icons.logout),
