@@ -665,14 +665,63 @@ class ImageDetailsScreen extends StatelessWidget {
   }
 }
 
-class PurchaseDetailsScreen extends StatelessWidget {
+class PurchaseDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> purchase;
 
   const PurchaseDetailsScreen({required this.purchase});
 
   @override
+  _PurchaseDetailsScreenState createState() => _PurchaseDetailsScreenState();
+}
+
+class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
+  late Future<Map<int, String>> _convertedPricesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _convertedPricesFuture = _getConvertedPrices();
+  }
+
+  Future<Map<int, String>> _getConvertedPrices() async {
+    // Define currency symbols
+    final Map<String, String> currencySymbols = {
+      'USD': '\$',
+      'EUR': '€',
+      'JPY': '¥',
+      'GBP': '£',
+      'AUD': 'A\$',
+    };
+
+    // Get the preferred currency
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+
+    // Fetch exchange rates
+    CurrencyService currencyService = CurrencyService();
+    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+
+    // Prepare the converted prices map
+    final items = widget.purchase['items'] as List<Map<String, dynamic>>;
+    Map<int, String> convertedPrices = {};
+
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      double priceInUSD = double.parse(item['price'].toString());
+      double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+      String currencySymbol =
+          currencySymbols[selectedCurrency] ?? selectedCurrency;
+
+      convertedPrices[i] =
+          '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
+    }
+
+    return convertedPrices;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = purchase['items'] as List<Map<String, dynamic>>;
+    final items = widget.purchase['items'] as List<Map<String, dynamic>>;
+
     return Scaffold(
       appBar: AppBar(title: Text('Purchase Details')),
       body: Padding(
@@ -681,25 +730,39 @@ class PurchaseDetailsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Purchased on: ${purchase['timestamp'].toDate()}',
+              'Purchased on: ${widget.purchase['timestamp'].toDate()}',
               style: TextStyle(fontSize: 16),
             ),
             SizedBox(height: 16),
             Expanded(
-              child: ListView.builder(
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return ListTile(
-                    leading: Image.network(
-                      item['imageUrl'],
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                    ),
-                    title: Text(item['title'] ?? 'Untitled'),
-                    subtitle: Text('\$${item['price']}'),
-                  );
+              child: FutureBuilder<Map<int, String>>(
+                future: _convertedPricesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text('Error loading prices'));
+                  } else {
+                    final convertedPrices = snapshot.data!;
+                    return ListView.builder(
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        return ListTile(
+                          leading: Image.network(
+                            item['imageUrl'],
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                          ),
+                          title: Text(item['title'] ?? 'Untitled'),
+                          subtitle: Text(
+                            'Price: ${convertedPrices[index] ?? 'Error'}',
+                          ),
+                        );
+                      },
+                    );
+                  }
                 },
               ),
             ),
