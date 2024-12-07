@@ -1,3 +1,4 @@
+import 'package:canvas_connect/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'messaging_screen.dart';
@@ -257,6 +258,12 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context) => ShoppingScreen(username: _username),
           ))
           .then((_) => _loadCartFromFirestore()); // Refresh cart on return
+    } else if (index == 3) {
+      Navigator.of(context)
+          .push(MaterialPageRoute(
+            builder: (context) => SettingsScreen(),
+          ))
+          .then((_) => _loadCartFromFirestore()); // Refresh cart on return
     }
   }
 
@@ -441,6 +448,7 @@ class DetailScreen extends StatelessWidget {
     required this.onAddToCart,
   });
 
+  // Method to fetch the account's username
   Future<String> _fetchAccountUsername() async {
     try {
       final userDoc = await FirebaseFirestore.instance
@@ -454,6 +462,23 @@ class DetailScreen extends StatelessWidget {
     }
   }
 
+  // Method to get the converted price in the selected currency
+  Future<String> _getConvertedPrice(String price) async {
+    // Get the preferred currency from SharedPreferences
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+
+    // Fetch exchange rates
+    CurrencyService currencyService = CurrencyService();
+    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+
+    // Convert the price to the selected currency
+    double priceInUSD = double.parse(price);
+    double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+
+    // Format the converted price
+    return '$selectedCurrency ${convertedPrice.toStringAsFixed(2)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -461,7 +486,7 @@ class DetailScreen extends StatelessWidget {
         title: Text('Image Details'),
         actions: [
           FutureBuilder<String>(
-            future: _fetchAccountUsername(),
+            future: _fetchAccountUsername(), // Fetch the username
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return IconButton(
@@ -506,29 +531,46 @@ class DetailScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: FutureBuilder<String>(
-              future: _fetchAccountUsername(),
+              future: _getConvertedPrice(price), // Get the converted price
               builder: (context, snapshot) {
-                String username = 'Loading...';
+                String displayedPrice = 'Loading...';
 
                 if (snapshot.connectionState == ConnectionState.done) {
                   if (snapshot.hasError) {
-                    username = 'Error fetching username';
+                    displayedPrice = 'Error fetching price';
                   } else if (snapshot.hasData) {
-                    username = snapshot.data!;
+                    displayedPrice = snapshot.data!;
                   }
                 }
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Uploaded by: $username',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    FutureBuilder<String>(
+                      future:
+                          _fetchAccountUsername(), // Fetch username here as well
+                      builder: (context, userSnapshot) {
+                        String username = 'Loading...';
+
+                        if (userSnapshot.connectionState ==
+                            ConnectionState.done) {
+                          if (userSnapshot.hasError) {
+                            username = 'Error fetching username';
+                          } else if (userSnapshot.hasData) {
+                            username = userSnapshot.data!;
+                          }
+                        }
+
+                        return Text(
+                          'Uploaded by: $username', // Display username
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        );
+                      },
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Price: $price',
+                      'Price: $displayedPrice', // Display the converted price
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
