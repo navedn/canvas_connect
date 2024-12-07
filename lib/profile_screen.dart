@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 
+import 'settings_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   final String? userId;
   final String profileUsername;
@@ -37,7 +39,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _initializeUser();
     _fetchProfileUID();
-    _fetchPortfolioImages();
+    // _fetchPortfolioImages(); // This is already handled by _fetchProfileUID
   }
 
   void _initializeUser() {
@@ -62,6 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Fetch About Me only after setting the profile UID
         if (_profileUID != null) {
           _fetchAboutMe();
+          _fetchPortfolioImages();
           _fetchPurchaseHistory();
         } else {
           if (mounted) {
@@ -429,7 +432,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isOwnProfile = widget.userId == _profileUID;
-    _fetchPortfolioImages();
 
     return Scaffold(
       appBar: AppBar(
@@ -602,6 +604,34 @@ class ImageDetailsScreen extends StatelessWidget {
     this.onAddToCart,
   });
 
+  Future<String> _getConvertedPrice(String price) async {
+    // Define currency symbols
+    final Map<String, String> currencySymbols = {
+      'USD': '\$',
+      'EUR': '€',
+      'JPY': '¥',
+      'GBP': '£',
+      'AUD': 'A\$',
+    };
+
+    // Get the preferred currency
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+
+    // Fetch exchange rates
+    CurrencyService currencyService = CurrencyService();
+    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+
+    // Convert the price
+    double priceInUSD = double.parse(price);
+    double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+
+    // Get the currency symbol
+    String currencySymbol =
+        currencySymbols[selectedCurrency] ?? selectedCurrency;
+
+    return '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -612,7 +642,18 @@ class ImageDetailsScreen extends StatelessWidget {
           Image.network(imageData['imageUrl']),
           SizedBox(height: 16),
           Text('Uploaded by: ${imageData['userId']}'),
-          Text('Price: \$${imageData['price'].toStringAsFixed(2)}'),
+          FutureBuilder<String>(
+            future: _getConvertedPrice(imageData['price'].toString()),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Text('Price: Loading...');
+              } else if (snapshot.hasError) {
+                return Text('Price: Error');
+              } else {
+                return Text('Price: ${snapshot.data}');
+              }
+            },
+          ),
           if (!isOwnProfile)
             ElevatedButton(
               onPressed: onAddToCart,

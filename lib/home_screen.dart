@@ -464,6 +464,15 @@ class DetailScreen extends StatelessWidget {
 
   // Method to get the converted price in the selected currency
   Future<String> _getConvertedPrice(String price) async {
+    // Define currency symbols
+    final Map<String, String> currencySymbols = {
+      'USD': '\$', // Dollar
+      'EUR': '€', // Euro
+      'JPY': '¥', // Yen
+      'GBP': '£', // Pound
+      'AUD': 'A\$', // Australian Dollar
+    };
+
     // Get the preferred currency from SharedPreferences
     String selectedCurrency = await Preferences.getCurrencyPreference();
 
@@ -475,8 +484,12 @@ class DetailScreen extends StatelessWidget {
     double priceInUSD = double.parse(price);
     double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
 
-    // Format the converted price
-    return '$selectedCurrency ${convertedPrice.toStringAsFixed(2)}';
+    // Get the currency symbol or fall back to the currency code
+    String currencySymbol =
+        currencySymbols[selectedCurrency] ?? selectedCurrency;
+
+    // Format the converted price with the symbol
+    return '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
   }
 
   @override
