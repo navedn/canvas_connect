@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:intl/intl.dart';
 
 import 'settings_screen.dart';
 
@@ -34,6 +35,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   List<Map<String, dynamic>> _cart = []; // Shopping cart items
 
+  Map<int, String> _convertedPrices = {}; // To store converted prices
+
+  Map<int, String> _convertedPurchasePrices = {};
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +52,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user != null) {
       _currentUserId = user.uid;
     }
+  }
+
+  Future<Map<int, String>> _getConvertedPricesPortfolio() async {
+    // Define currency symbols
+    final Map<String, String> currencySymbols = {
+      'USD': '\$',
+      'EUR': '€',
+      'JPY': '¥',
+      'GBP': '£',
+      'AUD': 'A\$',
+    };
+
+    // Get the preferred currency
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+
+    // Fetch exchange rates
+    CurrencyService currencyService = CurrencyService();
+    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+
+    // Prepare the converted prices map for portfolio items
+    Map<int, String> convertedPrices = {};
+
+    for (int i = 0; i < _portfolioImages.length; i++) {
+      final item = _portfolioImages[i];
+      double priceInUSD = item['price'].toDouble();
+      double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+      String currencySymbol =
+          currencySymbols[selectedCurrency] ?? selectedCurrency;
+
+      convertedPrices[i] =
+          '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
+    }
+
+    return convertedPrices;
+  }
+
+  Future<Map<int, String>> _getConvertedPricesPurchaseHistory() async {
+    final Map<String, String> currencySymbols = {
+      'USD': '\$',
+      'EUR': '€',
+      'JPY': '¥',
+      'GBP': '£',
+      'AUD': 'A\$',
+    };
+
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+    CurrencyService currencyService = CurrencyService();
+    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+
+    Map<int, String> convertedPurchasePrices = {};
+    for (int i = 0; i < _purchaseHistory.length; i++) {
+      final purchase = _purchaseHistory[i];
+      double totalPriceInUSD = (purchase['items'] as List).fold<double>(
+        0.0,
+        (sum, item) => sum + (item['price'] as num).toDouble(),
+      );
+      double convertedPrice =
+          totalPriceInUSD * (rates[selectedCurrency] ?? 1.0);
+      String currencySymbol =
+          currencySymbols[selectedCurrency] ?? selectedCurrency;
+
+      convertedPurchasePrices[i] =
+          '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
+    }
+    return convertedPurchasePrices;
   }
 
   Future<void> _fetchProfileUID() async {
@@ -66,6 +136,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _fetchAboutMe();
           _fetchPortfolioImages();
           _fetchPurchaseHistory();
+          _getConvertedPricesPortfolio().then((convertedPrices) {
+            setState(() {
+              _convertedPrices = convertedPrices;
+            });
+          });
         } else {
           if (mounted) {
             setState(() {
@@ -216,6 +291,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           print('Fetched purchase history: $fetchedHistory'); // Debugging
           setState(() {
             _purchaseHistory = fetchedHistory;
+          });
+
+          _getConvertedPricesPurchaseHistory().then((convertedPurchasePrices) {
+            setState(() {
+              _convertedPurchasePrices = convertedPurchasePrices;
+            });
           });
         }
       }
@@ -509,6 +590,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           itemCount: _portfolioImages.length,
                           itemBuilder: (context, index) {
                             final image = _portfolioImages[index];
+                            final convertedPrice = _convertedPrices[index] ??
+                                ''; // Use the converted price
+
                             return GestureDetector(
                               onTap: () => _viewImageDetails(image),
                               child: Card(
@@ -532,8 +616,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             style: TextStyle(
                                                 fontWeight: FontWeight.bold),
                                           ),
+                                          // Display the converted price here
                                           Text(
-                                            '\$${image['price'].toStringAsFixed(2)}',
+                                            convertedPrice.isEmpty
+                                                ? '\$${image['price'].toStringAsFixed(2)}'
+                                                : convertedPrice,
                                             style:
                                                 TextStyle(color: Colors.green),
                                           ),
@@ -562,24 +649,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       itemCount: _purchaseHistory.length,
                       itemBuilder: (context, index) {
                         final purchase = _purchaseHistory[index];
-                        return Card(
-                          child: ListTile(
-                            title: Text(
-                                'Total: \$${(purchase['items'] as List).cast<Map<String, dynamic>>().fold<double>(
-                                      0.0,
-                                      (sum, item) =>
-                                          sum +
-                                          (item['price'] as num).toDouble(),
-                                    ).toStringAsFixed(2)}'),
-                            subtitle: Text(
-                                'Purchased on: ${purchase['timestamp'].toDate()}'),
-                            trailing: Icon(Icons.arrow_forward),
-                            onTap: () => _viewPurchaseDetails(purchase),
+                        final convertedPrice = _convertedPurchasePrices[
+                                index] ??
+                            ''; // Use the converted price for purchase history
+
+                        return GestureDetector(
+                          onTap: () => _viewPurchaseDetails(purchase),
+                          child: Card(
+                            child: ListTile(
+                              title: Text(
+                                'Total: ${convertedPrice.isEmpty ? '\$${(purchase['items'] as List).fold<double>(0.0, (sum, item) => sum + (item['price'] is num ? (item['price'] as num).toDouble() : 0.0))?.toStringAsFixed(2)}' : convertedPrice}',
+                              ),
+                              subtitle: Text(
+                                'Purchased on: ${DateFormat.yMMMd().format(purchase['timestamp'].toDate())}',
+                              ),
+                            ),
                           ),
                         );
                       },
                     ),
-                  ]
+                  ],
                 ],
               ),
             ),
