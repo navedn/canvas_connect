@@ -464,7 +464,6 @@ class DetailScreen extends StatelessWidget {
 
   // Method to get the converted price in the selected currency
   Future<String> _getConvertedPrice(String price) async {
-    // Define currency symbols
     final Map<String, String> currencySymbols = {
       'USD': '\$', // Dollar
       'EUR': '€', // Euro
@@ -473,22 +472,39 @@ class DetailScreen extends StatelessWidget {
       'AUD': 'A\$', // Australian Dollar
     };
 
-    // Get the preferred currency from SharedPreferences
+    final Map<String, double> defaultRates = {
+      'USD': 1.0, // Base currency
+      'EUR': 0.85,
+      'JPY': 151.41,
+      'GBP': 0.74,
+      'AUD': 1.5,
+    };
+
     String selectedCurrency = await Preferences.getCurrencyPreference();
 
-    // Fetch exchange rates
-    CurrencyService currencyService = CurrencyService();
-    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+    // Fetch exchange rates, fallback to defaultRates on failure
+    Map<String, double> rates;
+    try {
+      CurrencyService currencyService = CurrencyService();
+      rates = await currencyService.fetchExchangeRates('USD');
+    } catch (e) {
+      print('Failed to fetch exchange rates: $e');
+      rates = defaultRates;
+    }
 
-    // Convert the price to the selected currency
+    // Ensure a rate exists for the selected currency
     double priceInUSD = double.parse(price);
-    double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+    double rate =
+        rates[selectedCurrency] ?? defaultRates[selectedCurrency] ?? 1.0;
 
-    // Get the currency symbol or fall back to the currency code
+    if (rate == 1.0 && !defaultRates.containsKey(selectedCurrency)) {
+      print('Warning: Fallback rate applied for currency $selectedCurrency.');
+    }
+
+    double convertedPrice = priceInUSD * rate;
     String currencySymbol =
         currencySymbols[selectedCurrency] ?? selectedCurrency;
 
-    // Format the converted price with the symbol
     return '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
   }
 
