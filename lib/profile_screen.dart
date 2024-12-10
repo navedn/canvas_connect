@@ -747,16 +747,38 @@ class ImageDetailsScreen extends StatelessWidget {
       'AUD': 'A\$',
     };
 
+    final Map<String, double> defaultRates = {
+      'USD': 1.0, // Base currency
+      'EUR': 0.85,
+      'JPY': 151.41,
+      'GBP': 0.74,
+      'AUD': 1.5,
+    };
+
     // Get the preferred currency
     String selectedCurrency = await Preferences.getCurrencyPreference();
 
     // Fetch exchange rates
-    CurrencyService currencyService = CurrencyService();
-    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+    Map<String, double> rates;
+    try {
+      CurrencyService currencyService = CurrencyService();
+      rates = await currencyService.fetchExchangeRates('USD');
+      if (rates.isEmpty) {
+        throw Exception('Invalid or empty rates returned from API');
+      }
+    } catch (e) {
+      print('Failed to fetch exchange rates: $e');
+      rates = defaultRates; // Use default rates if fetching fails
+    }
 
-    // Convert the price
+    // Convert the price using the selected currency
     double priceInUSD = double.parse(price);
-    double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+
+    // Get the conversion rate from either the API rates or fallback to defaultRates
+    double conversionRate =
+        rates[selectedCurrency] ?? defaultRates[selectedCurrency] ?? 1.0;
+
+    double convertedPrice = priceInUSD * conversionRate;
 
     // Get the currency symbol
     String currencySymbol =
@@ -826,12 +848,29 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
       'AUD': 'A\$',
     };
 
+    final Map<String, double> defaultRates = {
+      'USD': 1.0, // Base currency
+      'EUR': 0.85,
+      'JPY': 151.41,
+      'GBP': 0.74,
+      'AUD': 1.5,
+    };
+
     // Get the preferred currency
     String selectedCurrency = await Preferences.getCurrencyPreference();
 
     // Fetch exchange rates
-    CurrencyService currencyService = CurrencyService();
-    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+    Map<String, double> rates;
+    try {
+      CurrencyService currencyService = CurrencyService();
+      rates = await currencyService.fetchExchangeRates('USD');
+      if (rates.isEmpty) {
+        throw Exception('Invalid or empty rates returned from API');
+      }
+    } catch (e) {
+      print('Failed to fetch exchange rates: $e');
+      rates = defaultRates; // Use default rates if fetching fails
+    }
 
     // Prepare the converted prices map
     final items = widget.purchase['items'] as List<Map<String, dynamic>>;
@@ -840,7 +879,12 @@ class _PurchaseDetailsScreenState extends State<PurchaseDetailsScreen> {
     for (int i = 0; i < items.length; i++) {
       final item = items[i];
       double priceInUSD = double.parse(item['price'].toString());
-      double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+
+      // Get the conversion rate or use the fallback default
+      double conversionRate =
+          rates[selectedCurrency] ?? defaultRates[selectedCurrency] ?? 1.0;
+
+      double convertedPrice = priceInUSD * conversionRate;
       String currencySymbol =
           currencySymbols[selectedCurrency] ?? selectedCurrency;
 
