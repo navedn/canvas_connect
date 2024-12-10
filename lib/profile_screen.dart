@@ -64,12 +64,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'AUD': 'A\$',
     };
 
+    final Map<String, double> defaultRates = {
+      'USD': 1.0, // Base currency
+      'EUR': 0.85,
+      'JPY': 151.41,
+      'GBP': 0.74,
+      'AUD': 1.5,
+    };
+
     // Get the preferred currency
     String selectedCurrency = await Preferences.getCurrencyPreference();
 
-    // Fetch exchange rates
-    CurrencyService currencyService = CurrencyService();
-    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+    // Fetch exchange rates with fallback
+    Map<String, double> rates;
+    try {
+      CurrencyService currencyService = CurrencyService();
+      rates = await currencyService.fetchExchangeRates('USD');
+      if (rates.isEmpty) throw Exception('Empty rates returned from API');
+    } catch (e) {
+      print('Failed to fetch exchange rates: $e');
+      rates = defaultRates;
+    }
 
     // Prepare the converted prices map for portfolio items
     Map<int, String> convertedPrices = {};
@@ -77,7 +92,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     for (int i = 0; i < _portfolioImages.length; i++) {
       final item = _portfolioImages[i];
       double priceInUSD = item['price'].toDouble();
-      double convertedPrice = priceInUSD * (rates[selectedCurrency] ?? 1.0);
+
+      // Ensure selectedCurrency exists in rates
+      double conversionRate =
+          rates[selectedCurrency] ?? defaultRates[selectedCurrency] ?? 1.0;
+
+      double convertedPrice = priceInUSD * conversionRate;
       String currencySymbol =
           currencySymbols[selectedCurrency] ?? selectedCurrency;
 
@@ -97,10 +117,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'AUD': 'A\$',
     };
 
-    String selectedCurrency = await Preferences.getCurrencyPreference();
-    CurrencyService currencyService = CurrencyService();
-    Map<String, double> rates = await currencyService.fetchExchangeRates('USD');
+    final Map<String, double> defaultRates = {
+      'USD': 1.0, // Base currency
+      'EUR': 0.85,
+      'JPY': 151.41,
+      'GBP': 0.74,
+      'AUD': 1.5,
+    };
 
+    // Get the preferred currency
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+
+    // Fetch exchange rates with fallback
+    Map<String, double> rates;
+    try {
+      CurrencyService currencyService = CurrencyService();
+      rates = await currencyService.fetchExchangeRates('USD');
+      if (rates.isEmpty) throw Exception('Empty rates returned from API');
+    } catch (e) {
+      print('Failed to fetch exchange rates: $e');
+      rates = defaultRates;
+    }
+
+    // Prepare the converted purchase prices map
     Map<int, String> convertedPurchasePrices = {};
     for (int i = 0; i < _purchaseHistory.length; i++) {
       final purchase = _purchaseHistory[i];
@@ -108,14 +147,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         0.0,
         (sum, item) => sum + (item['price'] as num).toDouble(),
       );
-      double convertedPrice =
-          totalPriceInUSD * (rates[selectedCurrency] ?? 1.0);
+
+      // Ensure selectedCurrency exists in rates
+      double conversionRate =
+          rates[selectedCurrency] ?? defaultRates[selectedCurrency] ?? 1.0;
+
+      double convertedPrice = totalPriceInUSD * conversionRate;
       String currencySymbol =
           currencySymbols[selectedCurrency] ?? selectedCurrency;
 
       convertedPurchasePrices[i] =
           '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
     }
+
     return convertedPurchasePrices;
   }
 
