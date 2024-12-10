@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'messaging_screen.dart';
 import 'profile_screen.dart';
+import 'settings_screen.dart';
 
 class ShoppingScreen extends StatefulWidget {
   final String username;
@@ -45,6 +46,10 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
     } else if (index == 0) {
       Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (context) => HomeScreen(),
+      ));
+    } else if (index == 3) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (context) => SettingsScreen(),
       ));
     }
   }
@@ -123,6 +128,56 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
     );
   }
 
+  Future<Map<int, String>> _getConvertedPricesForCart() async {
+    // Define currency symbols and default rates
+    final Map<String, String> currencySymbols = {
+      'USD': '\$',
+      'EUR': '€',
+      'JPY': '¥',
+      'GBP': '£',
+      'AUD': 'A\$',
+    };
+
+    final Map<String, double> defaultRates = {
+      'USD': 1.0, // Base currency
+      'EUR': 0.85, // Example fallback
+      'JPY': 151.41, // Example fallback for Yen
+      'GBP': 0.74, // Example fallback for Pound
+      'AUD': 1.5, // Example fallback for AUD
+    };
+
+    // Get the preferred currency
+    String selectedCurrency = await Preferences.getCurrencyPreference();
+
+    // Fetch exchange rates
+    Map<String, double> rates;
+    try {
+      CurrencyService currencyService = CurrencyService();
+      rates = await currencyService.fetchExchangeRates('USD');
+    } catch (e) {
+      rates = defaultRates; // Fallback if API fails
+    }
+
+    // Ensure the rate for the selected currency exists
+    double exchangeRate =
+        rates[selectedCurrency] ?? defaultRates[selectedCurrency] ?? 1.0;
+
+    // Prepare the converted prices map for cart items
+    Map<int, String> convertedPrices = {};
+    String currencySymbol =
+        currencySymbols[selectedCurrency] ?? selectedCurrency;
+
+    for (int i = 0; i < _cart.length; i++) {
+      final item = _cart[i];
+      double priceInUSD = (item['price'] as num).toDouble();
+      double convertedPrice = priceInUSD * exchangeRate;
+      convertedPrices[i] =
+          '$currencySymbol${convertedPrice.toStringAsFixed(2)}';
+    }
+
+    return convertedPrices;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -192,9 +247,19 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
           ],
         ),
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _cart.isEmpty
+      body: FutureBuilder<Map<int, String>>(
+        future: _getConvertedPricesForCart(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError || !snapshot.hasData) {
+            return Center(child: Text('Failed to load cart prices'));
+          }
+
+          final convertedPrices = snapshot.data!;
+          return _cart.isEmpty
               ? Center(child: Text('Your cart is empty.'))
               : Column(
                   children: [
@@ -210,7 +275,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                               height: 50,
                               fit: BoxFit.cover,
                             ),
-                            title: Text('Price: ${item['price']}'),
+                            title: Text('Price: ${convertedPrices[index]}'),
                             trailing: IconButton(
                               icon: Icon(Icons.delete),
                               onPressed: () => _removeItem(index),
@@ -219,17 +284,23 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                         },
                       ),
                     ),
+                    // Checkout Button
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (_cart.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(content: Text('Your cart is empty!')),
                           );
                         } else {
+                          final convertedPrices =
+                              await _getConvertedPricesForCart();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => CheckoutScreen(cart: _cart),
+                              builder: (context) => CheckoutScreen(
+                                cart: _cart,
+                                convertedPrices: convertedPrices,
+                              ),
                             ),
                           );
                         }
@@ -237,7 +308,9 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                       child: Text('Checkout'),
                     ),
                   ],
-                ),
+                );
+        },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.pink,
         selectedItemColor: Colors.blue,
@@ -270,8 +343,9 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
 class CheckoutScreen extends StatelessWidget {
   final List<Map<String, dynamic>> cart;
+  final Map<int, String> convertedPrices;
 
-  CheckoutScreen({required this.cart});
+  CheckoutScreen({required this.cart, required this.convertedPrices});
 
   Future<void> _completePurchase(BuildContext context) async {
     try {
@@ -312,8 +386,12 @@ class CheckoutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double total =
-        cart.fold(0.0, (sum, item) => sum + (item['price'] as num).toDouble());
+    double total = convertedPrices.values.map((priceString) {
+      // Remove currency symbols and convert to double
+      final numericPrice =
+          double.tryParse(priceString.replaceAll(RegExp(r'[^\d.]'), ''));
+      return numericPrice ?? 0.0;
+    }).fold(0.0, (sum, price) => sum + price);
 
     return Scaffold(
       appBar: AppBar(
@@ -333,7 +411,7 @@ class CheckoutScreen extends StatelessWidget {
                     height: 50,
                     fit: BoxFit.cover,
                   ),
-                  title: Text('Price: ${item['price']}'),
+                  title: Text('Price: ${convertedPrices[index]}'),
                 );
               },
             ),
@@ -344,7 +422,7 @@ class CheckoutScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Total: \$${total.toStringAsFixed(2)}',
+                  'Total: ${convertedPrices.values.first.substring(0, 1)}${total.toStringAsFixed(2)}',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),

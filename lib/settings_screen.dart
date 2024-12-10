@@ -102,7 +102,8 @@ class CurrencyService {
       }
     } catch (e) {
       // Handle errors by checking for rate limit exceeded or other issues
-      if (e.toString().contains('exceeded the maximum rate limitation')) {
+      if (e.toString().contains('exceeded the maximum rate limitation') ||
+          e.toString().contains('Rate limit exceeded')) {
         // Provide a fallback rate from local storage
         Map<String, double> fallbackRates =
             await Preferences.getFallbackExchangeRates();
