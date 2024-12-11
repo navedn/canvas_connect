@@ -379,6 +379,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             builder: (context) => DetailScreen(
                               currentUserID: user!.uid,
                               imageUrl: image['imageUrl'],
+                              title: image['title'],
+                              description: image['description'],
                               userId: image['userId'],
                               price: image['price'].toString(),
                               onAddToCart: () => _addToCart(image),
@@ -436,6 +438,8 @@ class _HomeScreenState extends State<HomeScreen> {
 class DetailScreen extends StatelessWidget {
   final String imageUrl;
   final String userId;
+  final String title;
+  final String description;
   final String price;
   final String currentUserID;
   final VoidCallback onAddToCart;
@@ -443,6 +447,8 @@ class DetailScreen extends StatelessWidget {
   DetailScreen({
     required this.currentUserID,
     required this.imageUrl,
+    required this.title,
+    required this.description,
     required this.userId,
     required this.price,
     required this.onAddToCart,
@@ -512,7 +518,19 @@ class DetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Image Details'),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        title: Text(
+          'Image Details',
+          style: TextStyle(color: Colors.black),
+        ),
         actions: [
           FutureBuilder<String>(
             future: _fetchAccountUsername(), // Fetch the username
@@ -551,70 +569,99 @@ class DetailScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
+          AspectRatio(
+            aspectRatio: 16 / 10, // Ensures consistent sizing for the image
             child: Image.network(
               imageUrl,
               fit: BoxFit.cover,
+              width: double.infinity,
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: FutureBuilder<String>(
-              future: _getConvertedPrice(price), // Get the converted price
-              builder: (context, snapshot) {
-                String displayedPrice = 'Loading...';
-
-                if (snapshot.connectionState == ConnectionState.done) {
-                  if (snapshot.hasError) {
-                    displayedPrice = 'Error fetching price';
-                  } else if (snapshot.hasData) {
-                    displayedPrice = snapshot.data!;
-                  }
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FutureBuilder<String>(
-                      future:
-                          _fetchAccountUsername(), // Fetch username here as well
-                      builder: (context, userSnapshot) {
-                        String username = 'Loading...';
-
-                        if (userSnapshot.connectionState ==
-                            ConnectionState.done) {
-                          if (userSnapshot.hasError) {
-                            username = 'Error fetching username';
-                          } else if (userSnapshot.hasData) {
-                            username = userSnapshot.data!;
-                          }
-                        }
-
-                        return Text(
-                          'Uploaded by: $username', // Display username
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        );
-                      },
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Price: $displayedPrice', // Display the converted price
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+                FutureBuilder<String>(
+                  future: _fetchAccountUsername(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Text(
+                        "Loading artist...",
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                      );
+                    }
+                    return Text(
+                      "Uploaded by: ${snapshot.data}",
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                    );
+                  },
+                ),
+                SizedBox(height: 12),
+                Text(
+                  description,
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                ),
+                SizedBox(height: 12),
+                FutureBuilder<String>(
+                  future: _getConvertedPrice(price),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Text(
+                        "Fetching price...",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      );
+                    }
+                    return Text(
+                      "Price: ${snapshot.data}",
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: onAddToCart,
-                      child: Text('Add to Cart'),
-                    ),
-                  ],
-                );
-              },
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ],
       ),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [Colors.blue.shade300, Colors.purple.shade300],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          onPressed: onAddToCart,
+          child: Icon(
+            Icons.add_shopping_cart,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
     );
   }
 }
