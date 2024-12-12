@@ -737,6 +737,19 @@ class ImageDetailsScreen extends StatelessWidget {
     this.onAddToCart,
   });
 
+  Future<String> _fetchAccountUsername(String userId) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      return userDoc.data()?['username'] as String ?? 'Unknown';
+    } catch (e) {
+      return 'Error fetching username';
+    }
+  }
+
   Future<String> _getConvertedPrice(String price) async {
     // Define currency symbols
     final Map<String, String> currencySymbols = {
@@ -796,7 +809,18 @@ class ImageDetailsScreen extends StatelessWidget {
         children: [
           Image.network(imageData['imageUrl']),
           SizedBox(height: 16),
-          Text('Uploaded by: ${imageData['userId']}'),
+          FutureBuilder<String>(
+            future: _fetchAccountUsername(imageData['userId'].toString()),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Text('Price: Loading...');
+              } else if (snapshot.hasError) {
+                return Text('Price: Error');
+              } else {
+                return Text('Uploaded by: ${snapshot.data}');
+              }
+            },
+          ),
           FutureBuilder<String>(
             future: _getConvertedPrice(imageData['price'].toString()),
             builder: (context, snapshot) {
