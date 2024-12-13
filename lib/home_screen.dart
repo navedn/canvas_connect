@@ -111,16 +111,20 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       _showError('An error occurred: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _fetchPortfolioImages() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final imagesSnapshot = await _firestore.collection('portfolio').get();
@@ -290,10 +294,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Scaffold.of(context).openDrawer(), // Open Drawer
           ),
         ),
-        actions: [
-          IconButton(onPressed: () => {}, icon: Icon(Icons.search)),
-          IconButton(onPressed: () => {}, icon: Icon(Icons.more_vert)),
-        ],
+        // actions: [
+        //   IconButton(onPressed: () => {}, icon: Icon(Icons.search)),
+        //   IconButton(onPressed: () => {}, icon: Icon(Icons.more_vert)),
+        // ],
       ),
       drawer: Drawer(
         child: ListView(

@@ -182,6 +182,15 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Text('Shopping Cart'),
       ),
       drawer: Drawer(
@@ -396,6 +405,15 @@ class CheckoutScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Text('Checkout'),
       ),
       body: Column(
