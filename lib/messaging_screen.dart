@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import 'profile_screen.dart';
+import 'settings_screen.dart';
 import 'shopping_screen.dart';
 
 class MessagingScreen extends StatefulWidget {
@@ -285,14 +286,15 @@ class _MessagingScreenState extends State<MessagingScreen> {
             //     // Add navigation logic here
             //   },
             // ),
-            // ListTile(
-            //   leading: Icon(Icons.settings),
-            //   title: Text('Settings'),
-            //   onTap: () {
-            //     Navigator.of(context).pop();
-            //     // Add navigation logic here
-            //   },
-            // ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Settings'),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => SettingsScreen(),
+                ));
+              },
+            ),
             Divider(), // Optional divider
             ListTile(
               leading: Icon(Icons.logout),
@@ -370,9 +372,9 @@ class _MessagingScreenState extends State<MessagingScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.pink,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.black,
+        // backgroundColor: Colors.pink,
+        // selectedItemColor: Colors.blue,
+        // unselectedItemColor: Colors.black,
 
         currentIndex: _selectedIndex, // Set the currently selected index
         onTap: _onItemTapped, // Handle tab item selection
@@ -388,10 +390,6 @@ class _MessagingScreenState extends State<MessagingScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart_checkout),
             label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
           ),
         ],
       ),
