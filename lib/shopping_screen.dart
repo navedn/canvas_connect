@@ -182,6 +182,15 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Text('Shopping Cart'),
       ),
       drawer: Drawer(
@@ -230,14 +239,15 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
             //     // Add navigation logic here
             //   },
             // ),
-            // ListTile(
-            //   leading: Icon(Icons.settings),
-            //   title: Text('Settings'),
-            //   onTap: () {
-            //     Navigator.of(context).pop();
-            //     // Add navigation logic here
-            //   },
-            // ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Settings'),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => SettingsScreen(),
+                ));
+              },
+            ),
             Divider(), // Optional divider
             ListTile(
               leading: Icon(Icons.logout),
@@ -312,9 +322,9 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
         },
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.pink,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.black,
+        // backgroundColor: Colors.pink,
+        // selectedItemColor: Colors.blue,
+        // unselectedItemColor: Colors.black,
 
         currentIndex: _selectedIndex, // Set the currently selected index
         onTap: _onItemTapped, // Handle tab item selection
@@ -331,10 +341,10 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
             icon: Icon(Icons.shopping_cart_checkout),
             label: 'Cart',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.settings),
+          //   label: 'Settings',
+          // ),
         ],
       ),
     );
@@ -395,6 +405,15 @@ class CheckoutScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         title: Text('Checkout'),
       ),
       body: Column(

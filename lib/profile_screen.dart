@@ -284,18 +284,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _fetchPortfolioImages() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final imagesSnapshot = await _firestore
           .collection('portfolio')
           .where('userId', isEqualTo: _profileUID)
           .get();
 
+      final convertedPrices = await _getConvertedPricesPortfolio();
+
       if (mounted) {
         setState(() {
           _portfolioImages = imagesSnapshot.docs
               .map((doc) => doc.data() as Map<String, dynamic>)
               .toList();
+          _convertedPrices = convertedPrices;
           _isLoading = false;
+        });
+        setState(() {
+          _getConvertedPricesPortfolio().then((convertedPrices) {
+            setState(() {
+              _convertedPrices = convertedPrices;
+            });
+          });
         });
       }
     } catch (e) {
@@ -737,6 +751,19 @@ class ImageDetailsScreen extends StatelessWidget {
     this.onAddToCart,
   });
 
+  Future<String> _fetchAccountUsername(String userId) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      return userDoc.data()?['username'] as String ?? 'Unknown';
+    } catch (e) {
+      return 'Error fetching username';
+    }
+  }
+
   Future<String> _getConvertedPrice(String price) async {
     // Define currency symbols
     final Map<String, String> currencySymbols = {
@@ -790,32 +817,144 @@ class ImageDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Image Details')),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.network(imageData['imageUrl']),
-          SizedBox(height: 16),
-          Text('Uploaded by: ${imageData['userId']}'),
-          FutureBuilder<String>(
-            future: _getConvertedPrice(imageData['price'].toString()),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Text('Price: Loading...');
-              } else if (snapshot.hasError) {
-                return Text('Price: Error');
-              } else {
-                return Text('Price: ${snapshot.data}');
-              }
-            },
-          ),
-          if (!isOwnProfile)
-            ElevatedButton(
-              onPressed: onAddToCart,
-              child: Text('Add to Cart'),
+      appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue.shade300, Colors.purple.shade300],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-        ],
+          ),
+        ),
+        title: Text(
+          'Image Details',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
       ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Display the image with BoxFit.cover
+            Container(
+              height: 300,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: NetworkImage(imageData['imageUrl']),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            // Details Section
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    imageData['title'] ?? 'Untitled',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  // Description
+                  Text(
+                    imageData['description'] ?? 'No description available.',
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                  ),
+                  SizedBox(height: 16),
+                  // Uploaded by
+                  FutureBuilder<String>(
+                    future:
+                        _fetchAccountUsername(imageData['userId'].toString()),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Text(
+                          'Uploaded by: Loading...',
+                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return Text(
+                          'Uploaded by: Error',
+                          style: TextStyle(fontSize: 16, color: Colors.black54),
+                        );
+                      }
+                      return Text(
+                        'Uploaded by: ${snapshot.data}',
+                        style: TextStyle(fontSize: 16, color: Colors.black54),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  // Price
+                  FutureBuilder<String>(
+                    future: _getConvertedPrice(imageData['price'].toString()),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Text(
+                          'Price: Loading...',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return Text(
+                          'Price: Error',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        );
+                      }
+                      return Text(
+                        'Price: ${snapshot.data}',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: isOwnProfile
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade300, Colors.purple.shade300],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                onPressed: onAddToCart,
+                child: Icon(
+                  Icons.add_shopping_cart,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
     );
   }
 }

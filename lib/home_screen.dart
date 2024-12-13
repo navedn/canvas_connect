@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'https://pixabay.com/api/?key=$_apiKey&q=art&image_type=photo&per_page=20'),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && mounted) {
         final data = json.decode(response.body);
         setState(() {
           _images = data['hits'];
@@ -111,16 +111,20 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       _showError('An error occurred: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _fetchPortfolioImages() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       final imagesSnapshot = await _firestore.collection('portfolio').get();
@@ -290,10 +294,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Scaffold.of(context).openDrawer(), // Open Drawer
           ),
         ),
-        actions: [
-          IconButton(onPressed: () => {}, icon: Icon(Icons.search)),
-          IconButton(onPressed: () => {}, icon: Icon(Icons.more_vert)),
-        ],
+        // actions: [
+        //   IconButton(onPressed: () => {}, icon: Icon(Icons.search)),
+        //   IconButton(onPressed: () => {}, icon: Icon(Icons.more_vert)),
+        // ],
       ),
       drawer: Drawer(
         child: ListView(
@@ -340,14 +344,17 @@ class _HomeScreenState extends State<HomeScreen> {
             //     // Add navigation logic here
             //   },
             // ),
-            // ListTile(
-            //   leading: Icon(Icons.settings),
-            //   title: Text('Settings'),
-            //   onTap: () {
-            //     Navigator.of(context).pop();
-            //     // Add navigation logic here
-            //   },
-            // ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Settings'),
+              onTap: () {
+                Navigator.of(context)
+                    .push(MaterialPageRoute(
+                      builder: (context) => SettingsScreen(),
+                    ))
+                    .then((_) => _loadCartFromFirestore());
+              },
+            ),
             Divider(), // Optional divider
             ListTile(
               leading: Icon(Icons.logout),
@@ -406,9 +413,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.pink,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.black,
+        // backgroundColor: const Color.fromARGB(255, 102, 81, 81),
+        // selectedItemColor: Colors.blue,
+        // unselectedItemColor: Colors.black,
 
         currentIndex: _selectedIndex, // Set the currently selected index
         onTap: _onItemTapped, // Handle tab item selection
@@ -424,10 +431,6 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_cart_checkout),
             label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
           ),
         ],
       ),
